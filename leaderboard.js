@@ -1,44 +1,51 @@
-// Reference to Firestore
-const leaderboardRef = db.collection('leaderboard');
+// Reference to Realtime Database
+const leaderboardRef = db.ref('leaderboard');
 
 // Function to submit score
 function submitScore() {
-    if (gameOver) {
-        const playerNameInput = document.getElementById('playerName').value.trim();
-        if (playerNameInput) {
-            playerName = playerNameInput;
-            leaderboardRef.add({
-                name: playerName,
-                score: score,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            })
-            .then(() => {
-                console.log('Score submitted!');
-                updateLeaderboard();
-            })
-            .catch((error) => {
-                console.error('Error submitting score: ', error);
-            });
-        } else {
-            alert('Please enter your name!');
-        }
-    } else {
-        alert('Finish the game to submit your score!');
+    if (playerName) {
+        leaderboardRef.child(playerName).set({
+            name: playerName,
+            totalPorkFreed: totalPorkFreed,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        })
+        .then(() => {
+            console.log('Score submitted!');
+            updateLeaderboard();
+        })
+        .catch((error) => {
+            console.error('Error submitting score: ', error);
+        });
     }
 }
 
 // Function to update leaderboard display
 function updateLeaderboard() {
-    const leaderboardList = document.getElementById('leaderboard-list');
-    leaderboardList.innerHTML = '';
+    const leaderboardBody = document.getElementById('leaderboard-body');
+    leaderboardBody.innerHTML = '';
 
-    leaderboardRef.orderBy('score', 'desc').limit(10).get()
-        .then((querySnapshot) => {
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const li = document.createElement('li');
-                li.textContent = `${data.name}: ${data.score}`;
-                leaderboardList.appendChild(li);
+    leaderboardRef.orderByChild('totalPorkFreed').limitToLast(10).once('value')
+        .then((snapshot) => {
+            const players = [];
+            snapshot.forEach((childSnapshot) => {
+                players.push(childSnapshot.val());
+            });
+            totalPlayers = players.length;
+            updateUI();
+
+            // Sort players by totalPorkFreed in descending order
+            players.sort((a, b) => b.totalPorkFreed - a.totalPorkFreed);
+
+            let rank = 1;
+            players.forEach((player) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${rank}</td>
+                    <td>${player.name}</td>
+                    <td>$${player.totalPorkFreed}</td>
+                `;
+                leaderboardBody.appendChild(tr);
+                rank++;
             });
         })
         .catch((error) => {

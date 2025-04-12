@@ -1,0 +1,14 @@
+{
+    "name": "octopork-platformer",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "npx serve -s .",
+        "build": "node build.js"
+    },
+    "devDependencies": {
+        "serve": "^14.2.3"
+    },
+    "dependencies": {
+        "fs": "0.0.1-security"
+    }
+}

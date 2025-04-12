@@ -1,26 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OctoPork Platformer</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OctoPork Platformer</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #1a1a3d; margin: 0; overflow: hidden; }
+    #game { position: relative; width: 800px; height: 600px; margin: 20px auto; overflow: hidden; background: #1a1a3d; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #jump-btn, #duck-btn, #share-btn {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: #800080;
+      border-radius: 50%;
+      color: white;
+      text-align: center;
+      line-height: 60px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #jump-btn { bottom: 20px; right: 100px; }
+    #duck-btn { bottom: 20px; right: 20px; }
+    #share-btn { top: 20px; right: 20px; }
+    #saved, #total, #players, #message, #badge, #level-display { font-size: 20px; margin: 10px; color: white; }
+    #progress-bar {
+      width: 80%;
+      height: 20px;
+      background: #ddd;
+      margin: 10px auto;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #progress {
+      height: 100%;
+      background: #4CAF50;
+      width: 0%;
+      transition: width 0.5s;
+    }
+    #leaderboard-section { margin-top: 20px; width: 800px; margin-left: auto; margin-right: auto; }
+    #leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    #leaderboard-table th, #leaderboard-table td { border: 1px solid #ddd; padding: 8px; text-align: left; color: white; }
+    #leaderboard-table th { background-color: #f2f2f2; color: black; }
+    #leaderboard-table tr:nth-child(even) { background-color: #333366; }
+    #leaderboard-table tr:hover { background-color: #555588; }
+    #name-prompt { 
+      position: fixed; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: white; 
+      padding: 20px; 
+      border: 2px solid #333; 
+      border-radius: 10px; 
+      box-shadow: 0 0 10px rgba(0,0,0,0.3); 
+      z-index: 1000; 
+    }
+    #name-prompt input { padding: 5px; margin: 10px; font-size: 16px; }
+    #name-prompt button { padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    #name-prompt button:hover { background: #45a049; }
+    #change-name { padding: 5px 10px; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+    #change-name:disabled { background: #cccccc; cursor: not-allowed; }
+    #change-name:hover:not(:disabled) { background: #0056b3; }
+    #badge { color: #FFD700; font-weight: bold; }
+    .new-player { color: green; font-weight: bold; animation: flash 1s ease-in-out 2; }
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="leaderboard">
-            <h2>Leaderboard</h2>
-            <ul id="leaderboard-list"></ul>
-            <input type="text" id="playerName" placeholder="Enter your name">
-            <button onclick="submitScore()">Submit Score</button>
-        </div>
-    </div>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
-    <script src="/firebase-config.js"></script>
-    <script src="/leaderboard.js"></script>
-    <script src="/game.js"></script>
+  <h1>OctoPork Platformer</h1>
+  <div id="game">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="jump-btn">Jump</div>
+    <div id="duck-btn">Duck</div>
+    <div id="share-btn">Share to X</div>
+  </div>
+  <div id="saved">$PORK Freed: $0</div>
+  <div id="total">Total $PORK Freed: $0</div>
+  <div id="players">Players Shredding Waste: 0</div>
+  <div id="message">Free $36T in $PORK—join the epic mission!</div>
+  <div id="badge"></div>
+  <div id="progress-bar">
+    <div id="progress"></div>
+  </div>
+  <div id="level-display">Level: 1 (0/0 wins)</div>
+
+  <button id="change-name" onclick="changePlayerName()">Change Name</button>
+
+  <div id="leaderboard-section">
+    <h2>Leaderboard - Top 10 Shredders</h2>
+    <div id="leaderboard-loading" style="display: none;">Loading...</div>
+    <table id="leaderboard-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player Name</th>
+          <th>Total $PORK Freed</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboard-body"></tbody>
+    </table>
+  </div>
+
+  <div id="name-prompt" style="display: none;">
+    <h3>Welcome to OctoPork Platformer!</h3>
+    <p>Please enter your player name:</p>
+    <input type="text" id="player-name-input" maxlength="20" placeholder="Your name">
+    <br>
+    <button onclick="submitPlayerName()">Submit</button>
+  </div>
+
+  <audio id="cha-ching" src="cha-ching.mp3"></audio>
+  <audio id="shredder" src="shredder.mp3"></audio>
+
+  <!-- Load environment variables -->
+  <script src="/env.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
+  <script src="/firebase-config.js"></script>
+  <script src="/leaderboard.js"></script>
+  <script src="/game.js"></script>
 </body>
 </html>
